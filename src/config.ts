@@ -23,16 +23,16 @@ export class ConfigParseError extends Error {
     const errorsAsString =
       errors != null
         ? errors
-            .map((e) => {
-              let msg = `\`${e.instancePath.replace(/^\//, '')}\` ${e.message}`;
-              if ('allowedValues' in e.params) {
-                msg += `. Allowed values: ${JSON.stringify(
-                  e.params.allowedValues
-                )}`;
-              }
-              return msg;
-            })
-            .join('\n')
+          .map((e) => {
+            let msg = `\`${e.instancePath.replace(/^\//, '')}\` ${e.message}`;
+            if ('allowedValues' in e.params) {
+              msg += `. Allowed values: ${JSON.stringify(
+                e.params.allowedValues
+              )}`;
+            }
+            return msg;
+          })
+          .join('\n')
         : '';
 
     this.name = 'ConfigParseError';
@@ -138,6 +138,23 @@ export interface TplinkSmarthomeConfigInput {
    * You probably don't want to change this.
    */
   devicesUseDiscoveryPort?: boolean;
+
+  // ==================
+  // Authentication (For Newer Devices)
+  // ------------------
+  /**
+   * Email address for TP-Link/Kasa cloud account
+   */
+  username?: string;
+  /**
+   * Password for TP-Link/Kasa cloud account
+   */
+  password?: string;
+  /**
+   * Enable KLAP protocol for newer TP-Link/Kasa devices
+   * @defaultValue true
+   */
+  useKlap?: boolean;
 }
 
 type TplinkSmarthomeConfigDefault = {
@@ -158,6 +175,10 @@ type TplinkSmarthomeConfigDefault = {
   transport: 'tcp' | 'udp' | undefined;
   waitTimeUpdate: number;
   devicesUseDiscoveryPort: boolean;
+
+  username?: string;
+  password?: string;
+  useKlap: boolean;
 };
 
 export type TplinkSmarthomeConfig = {
@@ -188,6 +209,10 @@ export type TplinkSmarthomeConfig = {
     excludeMacAddresses?: Array<string>;
     devices?: Array<{ host: string; port?: number | undefined }>;
   };
+
+  username?: string;
+  password?: string;
+  useKlap: boolean;
 };
 
 export const defaultConfig: TplinkSmarthomeConfigDefault = {
@@ -208,6 +233,10 @@ export const defaultConfig: TplinkSmarthomeConfigDefault = {
   transport: undefined,
   waitTimeUpdate: 100,
   devicesUseDiscoveryPort: false,
+
+  username: undefined,
+  password: undefined,
+  useKlap: true,
 };
 
 function isArrayOfStrings(value: unknown): value is Array<string> {
@@ -310,5 +339,8 @@ export function parseConfig(
       excludeMacAddresses: c.excludeMacAddresses,
       devices: c.devices,
     },
+    username: c.username,
+    password: c.password,
+    useKlap: Boolean(c.useKlap),
   };
 }

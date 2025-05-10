@@ -8,6 +8,7 @@ import { TplinkSmarthomeConfig } from '../config';
 import type TplinkSmarthomePlatform from '../platform';
 import type { TplinkSmarthomeAccessoryContext } from '../platform';
 import { deferAndCombine, getOrAddCharacteristic } from '../utils';
+import { KlapProtocol } from '../klap-protocol';
 
 export default class HomeKitDevicePlug extends HomekitDevice {
   private desiredPowerState?: boolean;
@@ -18,7 +19,8 @@ export default class HomeKitDevicePlug extends HomekitDevice {
     homebridgeAccessory:
       | PlatformAccessory<TplinkSmarthomeAccessoryContext>
       | undefined,
-    readonly tplinkDevice: Plug
+    readonly tplinkDevice: Plug,
+    protocol?: KlapProtocol
   ) {
     super(
       platform,
@@ -37,7 +39,8 @@ export default class HomeKitDevicePlug extends HomekitDevice {
         return tplinkDevice.supportsDimmer
           ? Categories.LIGHTBULB
           : Categories.OUTLET;
-      })()
+      })(),
+      protocol
     );
 
     let primaryService;
@@ -74,7 +77,10 @@ export default class HomeKitDevicePlug extends HomekitDevice {
 
     this.getSysInfo = deferAndCombine((requestCount) => {
       this.log.debug(`executing deferred getSysInfo count: ${requestCount}`);
-      return this.tplinkDevice.getSysInfo();
+      // Use the protocol-agnostic method for KLAP devices
+      return this.protocol
+        ? this.sendCommand('get_device_info')
+        : this.tplinkDevice.getSysInfo();
     }, platform.config.waitTimeUpdate);
 
     this.setPowerState = deferAndCombine(
@@ -89,11 +95,17 @@ export default class HomeKitDevicePlug extends HomekitDevice {
           return Promise.resolve(true);
         }
 
-        const ret = await this.tplinkDevice.setPowerState(
-          this.desiredPowerState
-        );
-        this.desiredPowerState = undefined;
-        return ret;
+        if (this.protocol) {
+          // Use KLAP protocol method for newer devices
+          return this.sendCommand({
+            set_device_info: {
+              on_off: this.desiredPowerState ? 1 : 0,
+            },
+          });
+        } else {
+          // Use legacy method for older devices
+          return this.tplinkDevice.setPowerState(this.desiredPowerState);
+        }
       },
       platform.config.waitTimeUpdate,
       (value: boolean) => {
@@ -103,7 +115,10 @@ export default class HomeKitDevicePlug extends HomekitDevice {
 
     this.getRealtime = deferAndCombine((requestCount) => {
       this.log.debug(`executing deferred getRealtime count: ${requestCount}`);
-      return this.tplinkDevice.emeter.getRealtime();
+      // Use the protocol-agnostic method for KLAP devices
+      return this.protocol
+        ? this.sendCommand('get_energy')
+        : this.tplinkDevice.emeter.getRealtime();
     }, platform.config.waitTimeUpdate);
   }
 

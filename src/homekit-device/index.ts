@@ -20,8 +20,10 @@ import type TplinkSmarthomePlatform from '../platform';
 import type { TplinkSmarthomeAccessoryContext } from '../platform';
 import type { TplinkDevice } from '../utils';
 import { prefixLogger } from '../utils';
+import { KlapProtocol } from '../klap-protocol';
 
 export default abstract class HomekitDevice {
+  protected protocol?: KlapProtocol;
   readonly log: Logger;
 
   homebridgeAccessory: PlatformAccessory<TplinkSmarthomeAccessoryContext>;
@@ -41,8 +43,10 @@ export default abstract class HomekitDevice {
       | PlatformAccessory<TplinkSmarthomeAccessoryContext>
       | undefined,
     readonly tplinkDevice: TplinkDevice,
-    readonly category: Categories
+    readonly category: Categories,
+    protocol?: KlapProtocol
   ) {
+    this.protocol = protocol;
     this.log = prefixLogger(
       platform.log,
       () => `${chalk.blue(`[${this.name}]`)}`
@@ -167,6 +171,23 @@ export default abstract class HomekitDevice {
 
   protected logRejection(reason: unknown): void {
     this.log.error(JSON.stringify(reason));
+  }
+
+  protected async sendCommand(command: string | Record<string, any>): Promise<any> {
+    // If we have a KLAP protocol, use it
+    if (this.protocol) {
+      return await this.protocol.query(command);
+    }
+
+    // Otherwise use the legacy method
+    // Convert to proper command format if necessary
+    let finalCommand = command;
+    if (typeof command === 'string') {
+      finalCommand = { system: { [command]: {} } };
+    }
+
+    // Use the existing method from tplinkDevice
+    return await this.tplinkDevice.send(finalCommand);
   }
 
   protected removeServiceIfExists(service: WithUUID<typeof Service>) {

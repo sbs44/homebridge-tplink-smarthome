@@ -14,6 +14,23 @@
         "default": "TplinkSmarthome",
         "minLength": 1
       },
+      "username": {
+        "title": "TP-Link Cloud Username",
+        "type": "string",
+        "description": "Email address for TP-Link/Kasa cloud account (required for newer devices)"
+      },
+      "password": {
+        "title": "TP-Link Cloud Password",
+        "type": "string",
+        "format": "password",
+        "description": "Password for TP-Link/Kasa cloud account (required for newer devices)"
+      },
+      "useKlap": {
+        "title": "Use KLAP Protocol",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable KLAP protocol for newer TP-Link/Kasa devices (recommended)"
+      },
       "addCustomCharacteristics": {
         "title": "Adds energy monitoring characteristics viewable in Eve app",
         "description": "<b>Plug</b>: Amperes, KilowattHours, VoltAmperes, Volts, Watts.<br/><b>Bulb</b>: Watts",
@@ -173,6 +190,17 @@
         "pollingInterval",
         "deviceTypes",
         "discoveryPort",
+        {
+          "type": "fieldset",
+          "title": "Authentication (For Newer Devices)",
+          "description": "TP-Link/Kasa credentials for newer devices that require authentication",
+          "expandable": true,
+          "items": [
+            "username",
+            "password",
+            "useKlap"
+          ]
+        },
         {
           "key": "macAddresses",
           "type": "array",

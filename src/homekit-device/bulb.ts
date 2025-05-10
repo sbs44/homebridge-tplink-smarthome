@@ -15,6 +15,7 @@ import {
   kelvinToMired,
   miredToKelvin,
 } from '../utils';
+import { KlapProtocol } from '../klap-protocol';
 
 export default class HomeKitDeviceBulb extends HomekitDevice {
   private desiredLightState: LightState = {};
@@ -25,14 +26,16 @@ export default class HomeKitDeviceBulb extends HomekitDevice {
     homebridgeAccessory:
       | PlatformAccessory<TplinkSmarthomeAccessoryContext>
       | undefined,
-    readonly tplinkDevice: Bulb
+    readonly tplinkDevice: Bulb,
+    protocol?: KlapProtocol
   ) {
     super(
       platform,
       config,
       homebridgeAccessory,
       tplinkDevice,
-      Categories.LIGHTBULB
+      Categories.LIGHTBULB,
+      protocol
     );
 
     const primaryService = this.addLightbulbService({
@@ -52,9 +55,17 @@ export default class HomeKitDeviceBulb extends HomekitDevice {
 
     this.getLightState = deferAndCombine((requestCount) => {
       this.log.debug(`executing deferred getLightState count: ${requestCount}`);
-      return this.tplinkDevice.getSysInfo().then((si) => {
-        return si.light_state;
-      });
+      if (this.protocol) {
+        // Use KLAP protocol method for newer devices
+        return this.sendCommand('get_device_info').then((info) => {
+          return info.light_state || {};
+        });
+      } else {
+        // Use legacy method for older devices
+        return this.tplinkDevice.getSysInfo().then((si) => {
+          return si.light_state;
+        });
+      }
     }, platform.config.waitTimeUpdate);
 
     this.setLightState = deferAndCombine(
@@ -67,11 +78,19 @@ export default class HomeKitDeviceBulb extends HomekitDevice {
           return Promise.resolve(true);
         }
 
-        const ret = this.tplinkDevice.lighting.setLightState(
-          this.desiredLightState
-        );
-        this.desiredLightState = {};
-        return ret;
+        if (this.protocol) {
+          // Use KLAP protocol method for newer devices
+          return this.sendCommand({
+            set_device_info: {
+              light_state: this.desiredLightState,
+            },
+          });
+        } else {
+          // Use legacy method for older devices
+          return this.tplinkDevice.lighting.setLightState(
+            this.desiredLightState
+          );
+        }
       },
       platform.config.waitTimeUpdate,
       (value: LightState) => {
@@ -80,7 +99,13 @@ export default class HomeKitDeviceBulb extends HomekitDevice {
     );
 
     this.getRealtime = deferAndCombine(() => {
-      return this.tplinkDevice.emeter.getRealtime();
+      if (this.protocol) {
+        // Use KLAP protocol method for newer devices
+        return this.sendCommand('get_energy');
+      } else {
+        // Use legacy method for older devices
+        return this.tplinkDevice.emeter.getRealtime();
+      }
     }, platform.config.waitTimeUpdate);
   }
 
